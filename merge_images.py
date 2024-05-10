@@ -10,7 +10,7 @@ def apply_transformations(image):
     transform = A.Compose(
         [
             A.ShiftScaleRotate(
-                shift_limit_x=(0.2, 0.2),
+                shift_limit_x=(-1.0, 1.0),
                 shift_limit_y=(0, 0),
                 scale_limit=0.0,
                 rotate_limit=0,
@@ -30,6 +30,7 @@ def merge_images(background_path, overlay_path, output_path, width, height):
 
     # Read the overlay image with alpha channel
     overlay = cv2.imread(overlay_path, cv2.IMREAD_UNCHANGED)
+    overlay = expand_image_borders_rgba(overlay, width, height)
 
     # Ensure overlay has an alpha channel
     if overlay.shape[2] < 4:
@@ -67,6 +68,48 @@ def merge_images(background_path, overlay_path, output_path, width, height):
 
     # Save the result
     cv2.imwrite(output_path, resized_background)
+
+
+def expand_image_borders_rgba(
+    image, final_width, final_height, border_color=(0, 0, 0, 0)
+):
+    """
+    Expand the borders of an RGBA image to the specified width and height.
+
+    Args:
+    image_path (str): Path to the input image.
+    final_width (int): Desired width of the output image.
+    final_height (int): Desired height of the output image.
+    border_color (tuple): Color of the border as a tuple (B, G, R, A).
+
+    Returns:
+    new_image (numpy.ndarray): Image with expanded borders.
+    """
+    # Check if image has an alpha channel
+    if image.shape[2] < 4:
+        raise ValueError(
+            "Loaded image does not contain an alpha channel. Make sure the input image is RGBA."
+        )
+
+    # Current dimensions
+    height, width = image.shape[:2]
+
+    # Calculate padding needed
+    top = bottom = (final_height - height) // 2
+    left = right = (final_width - width) // 2
+
+    # To handle cases where the new dimensions are odd and original dimensions are even (or vice versa)
+    if (final_height - height) % 2 != 0:
+        bottom += 1
+    if (final_width - width) % 2 != 0:
+        right += 1
+
+    # Apply make border with an RGBA color
+    new_image = cv2.copyMakeBorder(
+        image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=border_color
+    )
+
+    return new_image
 
 
 def main():
