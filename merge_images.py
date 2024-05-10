@@ -24,8 +24,8 @@ def apply_scale_and_move(image):
 def apply_noise(image):
     transform = A.Compose(
         [
-            A.MotionBlur(blur_limit=(3, 15), p=0.5),
-            A.GaussNoise(var_limit=(10, 50), p=0.5),
+            A.MotionBlur(blur_limit=(3, 15), p=0.8),
+            A.GaussNoise(var_limit=(50, 150), p=1.0),
         ]
     )
     return transform(image=image)["image"]
@@ -56,8 +56,6 @@ def merge_images(
         overlay, os.path.join(groundtruth_path, os.path.basename(overlay_path))
     )
 
-    overlay = apply_noise(overlay)
-
     # Overlay placement on the resized background
     x_offset = (width - overlay.shape[1]) // 2
     y_offset = (height - overlay.shape[0]) // 2
@@ -84,6 +82,8 @@ def merge_images(
     resized_background[
         y_offset : y_offset + overlay.shape[0], x_offset : x_offset + overlay.shape[1]
     ] = region_of_interest
+
+    resized_background = apply_noise(resized_background)
 
     # Save the result
     cv2.imwrite(
