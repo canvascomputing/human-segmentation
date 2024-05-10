@@ -3,19 +3,27 @@ import argparse
 import albumentations as A
 
 
-def apply_transformations(image):
-    height, width = image.shape[
-        :2
-    ]  # Extracting the height and width from the overlay image
+def apply_scale_and_move(image):
     transform = A.Compose(
         [
             A.ShiftScaleRotate(
-                shift_limit_x=(-1.0, 1.0),
+                shift_limit_x=(-0.5, 0.5),
                 shift_limit_y=(0, 0),
-                scale_limit=0.0,
-                rotate_limit=0,
-                p=1.0,
+                scale_limit=(0.0, 0.3),
+                border_mode=cv2.BORDER_WRAP,
+                rotate_limit=(-15, 15),
+                p=0.7,
             )
+        ]
+    )
+    return transform(image=image)["image"]
+
+
+def apply_noise(image):
+    transform = A.Compose(
+        [
+            A.MotionBlur(blur_limit=(3, 15), p=0.5),
+            A.GaussNoise(var_limit=(10, 50), p=0.5),
         ]
     )
     return transform(image=image)["image"]
@@ -30,14 +38,19 @@ def merge_images(background_path, overlay_path, output_path, width, height):
 
     # Read the overlay image with alpha channel
     overlay = cv2.imread(overlay_path, cv2.IMREAD_UNCHANGED)
-    overlay = expand_image_borders_rgba(overlay, width, height)
 
     # Ensure overlay has an alpha channel
     if overlay.shape[2] < 4:
         raise Exception("Overlay image does not have an alpha channel.")
 
     # Apply transformations to the overlay
-    overlay = apply_transformations(overlay)
+    overlay = expand_image_borders_rgba(overlay, width, height)
+    overlay = apply_scale_and_move(overlay)
+
+    # store ground truth
+    cv2.imwrite("gt.png", overlay)
+
+    overlay = apply_noise(overlay)
 
     # Overlay placement on the resized background
     x_offset = (width - overlay.shape[1]) // 2
