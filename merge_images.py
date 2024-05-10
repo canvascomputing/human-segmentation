@@ -9,11 +9,11 @@ def apply_scale_and_move(image):
     transform = A.Compose(
         [
             A.ShiftScaleRotate(
-                shift_limit_x=(-0.5, 0.5),
+                shift_limit_x=(-0.3, 0.3),
                 shift_limit_y=(0, 0),
-                scale_limit=(0.0, 0.3),
-                border_mode=cv2.BORDER_WRAP,
-                rotate_limit=(-15, 15),
+                scale_limit=(0.0, 0.2),
+                border_mode=cv2.BORDER_CONSTANT,
+                rotate_limit=(-10, 10),
                 p=0.7,
             )
         ]
