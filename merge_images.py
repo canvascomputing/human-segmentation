@@ -1,5 +1,7 @@
+import os
 import cv2
 import argparse
+from pathlib import Path
 import albumentations as A
 
 
@@ -29,7 +31,9 @@ def apply_noise(image):
     return transform(image=image)["image"]
 
 
-def merge_images(background_path, overlay_path, output_path, width, height):
+def merge_images(
+    background_path, overlay_path, output_path, groundtruth_path, width, height
+):
     # Read the background image and resize it to the specified dimensions
     background = cv2.imread(background_path, cv2.IMREAD_COLOR)
     resized_background = cv2.resize(
@@ -48,7 +52,9 @@ def merge_images(background_path, overlay_path, output_path, width, height):
     overlay = apply_scale_and_move(overlay)
 
     # store ground truth
-    extract_alpha_channel_as_bw(overlay, "gt.png")
+    extract_alpha_channel_as_bw(
+        overlay, os.path.join(groundtruth_path, os.path.basename(overlay_path))
+    )
 
     overlay = apply_noise(overlay)
 
@@ -80,7 +86,9 @@ def merge_images(background_path, overlay_path, output_path, width, height):
     ] = region_of_interest
 
     # Save the result
-    cv2.imwrite(output_path, resized_background)
+    cv2.imwrite(
+        os.path.join(output_path, os.path.basename(overlay_path)), resized_background
+    )
 
 
 def expand_image_borders_rgba(
@@ -114,9 +122,6 @@ def expand_image_borders_rgba(
 
 
 def extract_alpha_channel_as_bw(image, output_path):
-    if image is None:
-        raise FileNotFoundError(f"No image found at the specified path: {image_path}")
-
     # Check if the image has an alpha channel
     if image.shape[2] < 4:
         raise ValueError(
@@ -143,7 +148,8 @@ def main():
     parser.add_argument(
         "-out",
         "--output",
-        required=True,
+        type=str,
+        default="im",
         help="Path where the merged image will be saved",
     )
     parser.add_argument(
@@ -158,10 +164,28 @@ def main():
         default=1080,
         help="Height to which the background image will be resized",
     )
-
+    parser.add_argument(
+        "-gt",
+        "--groundtruth",
+        type=str,
+        default="gt",
+        help="Ground truth folder",
+    )
     args = parser.parse_args()
 
-    merge_images(args.background, args.overlay, args.output, args.width, args.height)
+    if not os.path.exists(args.output):
+        os.makedirs(args.output)
+    if not os.path.exists(args.groundtruth):
+        os.makedirs(args.groundtruth)
+
+    merge_images(
+        args.background,
+        args.overlay,
+        args.output,
+        args.groundtruth,
+        args.width,
+        args.height,
+    )
 
 
 if __name__ == "__main__":
