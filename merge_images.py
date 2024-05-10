@@ -48,7 +48,7 @@ def merge_images(background_path, overlay_path, output_path, width, height):
     overlay = apply_scale_and_move(overlay)
 
     # store ground truth
-    cv2.imwrite("gt.png", overlay)
+    extract_alpha_channel_as_bw(overlay, "gt.png")
 
     overlay = apply_noise(overlay)
 
@@ -86,18 +86,6 @@ def merge_images(background_path, overlay_path, output_path, width, height):
 def expand_image_borders_rgba(
     image, final_width, final_height, border_color=(0, 0, 0, 0)
 ):
-    """
-    Expand the borders of an RGBA image to the specified width and height.
-
-    Args:
-    image_path (str): Path to the input image.
-    final_width (int): Desired width of the output image.
-    final_height (int): Desired height of the output image.
-    border_color (tuple): Color of the border as a tuple (B, G, R, A).
-
-    Returns:
-    new_image (numpy.ndarray): Image with expanded borders.
-    """
     # Check if image has an alpha channel
     if image.shape[2] < 4:
         raise ValueError(
@@ -123,6 +111,23 @@ def expand_image_borders_rgba(
     )
 
     return new_image
+
+
+def extract_alpha_channel_as_bw(image, output_path):
+    if image is None:
+        raise FileNotFoundError(f"No image found at the specified path: {image_path}")
+
+    # Check if the image has an alpha channel
+    if image.shape[2] < 4:
+        raise ValueError(
+            "Loaded image does not contain an alpha channel. Make sure the input image is in PNG format with an alpha channel."
+        )
+
+    # Extract the alpha channel
+    alpha_channel = image[:, :, 3]
+
+    # Save or display the alpha channel as a black and white image
+    cv2.imwrite(output_path, alpha_channel)
 
 
 def main():
