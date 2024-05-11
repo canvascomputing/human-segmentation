@@ -13,7 +13,7 @@ def apply_scale_and_move(image):
                 shift_limit_y=(0, 0),
                 scale_limit=(0.0, 0.2),
                 border_mode=cv2.BORDER_CONSTANT,
-                rotate_limit=(-5, 5),
+                rotate_limit=(-2, 2),
                 p=0.7,
             )
         ]
@@ -21,13 +21,49 @@ def apply_scale_and_move(image):
     return transform(image=image)["image"]
 
 
+def apply_transform(image):
+    has_alpha = image.shape[2] == 4
+    if has_alpha:
+        alpha_channel = image[:, :, 3]
+        color_channels = image[:, :, :3]
+    else:
+        color_channels = image
+
+    # Define the transformation
+    transform = A.Compose(
+        [
+            A.RandomBrightnessContrast(
+                brightness_limit=(-0.2, 0.2), contrast_limit=(-0.4, 0), p=0.8
+            )
+        ]
+    )
+
+    # Apply the transformation only to the color channels
+    transformed = transform(image=color_channels)
+    transformed_image = transformed["image"]
+
+    # Merge the alpha channel back if it was separated
+    if has_alpha:
+        final_image = cv2.merge(
+            (
+                transformed_image[:, :, 0],
+                transformed_image[:, :, 1],
+                transformed_image[:, :, 2],
+                alpha_channel,
+            )
+        )
+    else:
+        final_image = transformed_image
+    return final_image
+
+
 def apply_noise(image):
     transform = A.Compose(
         [
-            A.MotionBlur(blur_limit=(3, 11), p=0.8),
-            A.GaussNoise(var_limit=(50, 150), p=1.0),
+            A.MotionBlur(blur_limit=(3, 11), p=1.0),
+            A.GaussNoise(var_limit=(10, 150), p=1.0),
             A.RandomBrightnessContrast(
-                brightness_limit=(-0.2, 0.2), contrast_limit=(-0.2, 0.2), p=0.5
+                brightness_limit=(-0.1, 0.1), contrast_limit=(-0.1, 0.1), p=0.5
             ),
         ]
     )
@@ -58,6 +94,8 @@ def merge_images(
     extract_alpha_channel_as_bw(
         overlay, os.path.join(groundtruth_path, os.path.basename(overlay_path))
     )
+
+    overlay = apply_transform(overlay)
 
     # Overlay placement on the resized background
     x_offset = (width - overlay.shape[1]) // 2
