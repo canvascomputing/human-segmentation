@@ -13,7 +13,7 @@ def apply_scale_and_move(image):
                 shift_limit_y=(0, 0),
                 scale_limit=(0.0, 0.2),
                 border_mode=cv2.BORDER_CONSTANT,
-                rotate_limit=(-10, 10),
+                rotate_limit=(-5, 5),
                 p=0.7,
             )
         ]
@@ -24,8 +24,11 @@ def apply_scale_and_move(image):
 def apply_noise(image):
     transform = A.Compose(
         [
-            A.MotionBlur(blur_limit=(3, 15), p=0.8),
+            A.MotionBlur(blur_limit=(3, 11), p=0.8),
             A.GaussNoise(var_limit=(50, 150), p=1.0),
+            A.RandomBrightnessContrast(
+                brightness_limit=(-0.2, 0.2), contrast_limit=(-0.2, 0.2), p=0.5
+            ),
         ]
     )
     return transform(image=image)["image"]
