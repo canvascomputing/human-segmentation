@@ -1,6 +1,8 @@
 import os
 import cv2
 import argparse
+import random
+import string
 from pathlib import Path
 import albumentations as A
 
@@ -73,6 +75,10 @@ def apply_noise(image):
 def merge_images(
     background_path, overlay_path, output_path, groundtruth_path, width, height
 ):
+    letters = string.ascii_lowercase
+    random_string = "".join(random.choice(letters) for i in range(13))
+    file_name = random_string + "_" + os.path.basename(overlay_path)
+
     # Read the background image and resize it to the specified dimensions
     background = cv2.imread(background_path, cv2.IMREAD_COLOR)
     resized_background = cv2.resize(
@@ -91,9 +97,7 @@ def merge_images(
     overlay = apply_scale_and_move(overlay)
 
     # store ground truth
-    extract_alpha_channel_as_bw(
-        overlay, os.path.join(groundtruth_path, os.path.basename(overlay_path))
-    )
+    extract_alpha_channel_as_bw(overlay, os.path.join(groundtruth_path, file_name))
 
     overlay = apply_transform(overlay)
 
@@ -126,10 +130,7 @@ def merge_images(
 
     resized_background = apply_noise(resized_background)
 
-    # Save the result
-    cv2.imwrite(
-        os.path.join(output_path, os.path.basename(overlay_path)), resized_background
-    )
+    cv2.imwrite(os.path.join(output_path, file_name), resized_background)
 
 
 def expand_image_borders_rgba(
