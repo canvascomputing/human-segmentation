@@ -10,6 +10,7 @@ import albumentations as A
 def apply_scale_and_move(image):
     transform = A.Compose(
         [
+            A.HorizontalFlip(p=0.5),
             A.ShiftScaleRotate(
                 shift_limit_x=(-0.3, 0.3),
                 shift_limit_y=(0, 0),
@@ -17,7 +18,7 @@ def apply_scale_and_move(image):
                 border_mode=cv2.BORDER_CONSTANT,
                 rotate_limit=(-2, 2),
                 p=0.7,
-            )
+            ),
         ]
     )
     return transform(image=image)["image"]

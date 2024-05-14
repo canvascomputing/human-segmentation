@@ -1,6 +1,6 @@
 #!/bin/bash
 
-backgrounds_dir="/Users/mav/My Drive/backgrounds"
+backgrounds_dir="backgrounds"
 overlays_dir="data"
 
 main() {
