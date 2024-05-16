@@ -4,6 +4,7 @@ import argparse
 import random
 import string
 from pathlib import Path
+import numpy as np
 import albumentations as A
 
 
@@ -174,8 +175,25 @@ def extract_alpha_channel_as_bw(image, output_path):
     # Extract the alpha channel
     alpha_channel = image[:, :, 3]
 
-    # Save or display the alpha channel as a black and white image
-    cv2.imwrite(output_path, alpha_channel)
+    # Threshold the alpha channel to create a binary image
+    thresh = cv2.threshold(alpha_channel, 50, 255, cv2.THRESH_BINARY)[1]
+
+    # Find contours in the thresholded image
+    contours = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    contours = contours[0] if len(contours) == 2 else contours[1]
+
+    # Find the largest contour
+    if contours:
+        big_contour = max(contours, key=cv2.contourArea)
+
+        # Draw the largest contour filled white on a black background
+        result = np.zeros_like(image[:, :, 0])
+        cv2.drawContours(result, [big_contour], 0, (255), cv2.FILLED)
+
+        # Save or display the result image
+        cv2.imwrite(output_path, result)
+    else:
+        raise ValueError("No contours found in the alpha channel.")
 
 
 def main():
