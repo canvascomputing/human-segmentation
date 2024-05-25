@@ -4,7 +4,6 @@ import argparse
 import random
 import string
 from pathlib import Path
-import numpy as np
 import albumentations as A
 
 
@@ -14,10 +13,10 @@ def apply_scale_and_move(image):
             A.HorizontalFlip(p=0.5),
             A.ShiftScaleRotate(
                 shift_limit_x=(-0.3, 0.3),
-                shift_limit_y=(0, 0),
-                scale_limit=(0.0, 0.2),
+                shift_limit_y=(0.0, 0.4),
+                scale_limit=(0.0, 1.0),
                 border_mode=cv2.BORDER_CONSTANT,
-                rotate_limit=(-2, 2),
+                rotate_limit=(-3, 3),
                 p=0.7,
             ),
         ]
@@ -69,9 +68,34 @@ def apply_noise(image):
             A.RandomBrightnessContrast(
                 brightness_limit=(-0.1, 0.1), contrast_limit=(-0.1, 0.1), p=0.5
             ),
+            A.RandomFog(
+                fog_coef_lower=0.05,
+                fog_coef_upper=0.2,
+                alpha_coef=0.08,
+                always_apply=False,
+                p=0.5,
+            ),
+            A.RandomShadow(
+                shadow_roi=(0, 0.5, 1, 1),
+                num_shadows_limit=(1, 2),
+                num_shadows_lower=None,
+                num_shadows_upper=None,
+                shadow_dimension=5,
+                always_apply=False,
+                p=0.5,
+            ),
+            A.RandomToneCurve(scale=0.1, always_apply=False, p=0.5),
         ]
     )
     return transform(image=image)["image"]
+
+
+def remove_alpha(image, alpha_threshold=200):
+
+    mask = image[:, :, 3] < alpha_threshold
+    image[mask] = [0, 0, 0, 0]
+
+    return image
 
 
 def merge_images(
@@ -83,12 +107,19 @@ def merge_images(
 
     # Read the background image and resize it to the specified dimensions
     background = cv2.imread(background_path, cv2.IMREAD_COLOR)
+
+    height, width = background.shape[:2]
+
+    height = int(1.5 * height)
+    width = int(1.5 * width)
+
     resized_background = cv2.resize(
         background, (width, height), interpolation=cv2.INTER_AREA
     )
 
     # Read the overlay image with alpha channel
     overlay = cv2.imread(overlay_path, cv2.IMREAD_UNCHANGED)
+    overlay = remove_alpha(overlay)
 
     # Ensure overlay has an alpha channel
     if overlay.shape[2] < 4:
@@ -175,25 +206,8 @@ def extract_alpha_channel_as_bw(image, output_path):
     # Extract the alpha channel
     alpha_channel = image[:, :, 3]
 
-    # Threshold the alpha channel to create a binary image
-    thresh = cv2.threshold(alpha_channel, 50, 255, cv2.THRESH_BINARY)[1]
-
-    # Find contours in the thresholded image
-    contours = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-    contours = contours[0] if len(contours) == 2 else contours[1]
-
-    # Find the largest contour
-    if contours:
-        big_contour = max(contours, key=cv2.contourArea)
-
-        # Draw the largest contour filled white on a black background
-        result = np.zeros_like(image[:, :, 0])
-        cv2.drawContours(result, [big_contour], 0, (255), cv2.FILLED)
-
-        # Save or display the result image
-        cv2.imwrite(output_path, result)
-    else:
-        raise ValueError("No contours found in the alpha channel.")
+    # Save or display the alpha channel as a black and white image
+    cv2.imwrite(output_path, alpha_channel)
 
 
 def main():
