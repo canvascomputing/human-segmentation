@@ -6,24 +6,17 @@ import string
 import albumentations as A
 
 
-def augment_segmentation_after_moving(image):
-    transform = A.Compose(
-        [
-            A.RandomBrightnessContrast(
-                brightness_limit=(-0.1, 0.1), contrast_limit=(-0.4, 0), p=0.8
-            )
-        ]
-    )
-    return transform(image=image)["image"]
-
-
 def augment_final_image(image):
     transform = A.Compose(
         [
             A.MotionBlur(blur_limit=(5, 11), p=1.0),
             A.GaussNoise(var_limit=(10, 150), p=1.0),
-            A.RandomBrightnessContrast(
-                brightness_limit=(-0.1, 0.1), contrast_limit=(-0.1, 0.1), p=0.5
+            A.ColorJitter(
+                brightness=(0.6, 1.0),
+                contrast=(0.6, 1.0),
+                saturation=(0.3, 1),
+                hue=(0.0, 0.1),
+                p=0.5,
             ),
             A.RandomFog(
                 fog_coef_lower=0.05,
@@ -85,7 +78,7 @@ def augment_and_match_size(image, target_width, target_height):
                 scale_limit=(0, 0),
                 border_mode=cv2.BORDER_CONSTANT,
                 rotate_limit=(-5, 5),
-                p=1.0,
+                p=0.7,
             ),
         ]
     )
@@ -166,7 +159,6 @@ def create_training_data(
     )
     ground_truth = create_ground_truth_mask(segmentation)
 
-    segmentation = augment_segmentation_after_moving(segmentation)
     result = merge_images(background, segmentation)
     result = augment_final_image(result)
 
