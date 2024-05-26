@@ -15,17 +15,26 @@ Since Stable Diffusion is not perfect, the dataset contains images with flaws. S
 
 The resulting model will be similar to [RMBG-1.4](https://huggingface.co/briaai/RMBG-1.4), but with open training data/process and commercially free to use.
 
-I had some trouble with the Hugging Face file upload. You can find the data here: [GDrvie](https://drive.google.com/drive/folders/1K1lK6nSoaQ7PLta-bcfol3XSGZA1b9nt?usp=drive_link)
+I had some trouble with the Hugging Face file upload. You can find the data here: [Google Drive](https://drive.google.com/drive/folders/1K1lK6nSoaQ7PLta-bcfol3XSGZA1b9nt?usp=drive_link).
 
 The dataset contains transparent images of humans (`/humans`) which are randomly combined with backgrounds (`/backgrounds`). Then the ground truth (`/gt`) for segmentation was computed based on the transparent images. The results are written to a training and validation dataset.
 
 I created more than 5.000 images with people and more than 5.000 diverse backgrounds.
 
+# Examples
+
+![](./humans/example01.png)
+![](./humans/example02.png)
+![](./humans/example03.png)
+![](./backgrounds/background01.png)
+![](./backgrounds/background02.png)
+![](./backgrounds/background03.png)
+
 # Create Training Dataset
 
 The following script creates augmented training and validation data.
 
-Notice: download the dataset from [GDrvie](https://drive.google.com/drive/folders/1K1lK6nSoaQ7PLta-bcfol3XSGZA1b9nt?usp=drive_link).
+Notice: download the dataset from [Google Drive](https://drive.google.com/drive/folders/1K1lK6nSoaQ7PLta-bcfol3XSGZA1b9nt?usp=drive_link).
 
 ```
 ./create_dataset.sh
