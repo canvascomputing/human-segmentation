@@ -23,12 +23,10 @@ I created more than 5.000 images with people and more than 5.000 diverse backgro
 
 # Examples
 
-![](./humans/example01.png)
-![](./humans/example02.png)
-![](./humans/example03.png)
-![](./backgrounds/background01.png)
-![](./backgrounds/background02.png)
-![](./backgrounds/background03.png)
+Here you can see an augmented image and the resulting ground truth:
+
+![](example_image.png)
+![](example_ground_truth.png)
 
 # Create Training Dataset
 
