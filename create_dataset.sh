@@ -1,35 +1,41 @@
 #!/bin/bash
 
-random_merge() {
+merge() {
     local backgrounds_dir="backgrounds"
-    local overlays_dir="humans"
-    
-    local image_path="$1"
-    local groundtruth_path="$2"
-    
+    local segmentations_dir="humans"
+
     background=$(find "$backgrounds_dir" -type f | shuf -n 1)
-    overlay=$(find "$overlays_dir" -type f | shuf -n 1)
-    echo "Processing iteration $i: $overlay + $background"
+    segmentation=$(find "$segmentations_dir" -type f | shuf -n 1)
+
+    echo "Iteration $i: $segmentation + $background"
+
     python3 "util/merge_images.py" \
-        -b "$background" -o "$overlay" \
-        -gt "$groundtruth_path" -im "$image_path"
+        -b "$background" -s "$segmentation" \
+        -im "$1" -gt "$2"
 }
 
 main() {
     local max_iterations=2000
+    local train_gt_path="dataset/training/gt"
+    local train_image_path="dataset/training/im"
+    local validation_gt_path="dataset/validation/gt"
+    local validation_image_path="dataset/validation/im"
     for ((i = 0 ; i <= $max_iterations ; i++)); do
         # For quicker creation some parallelization
-        # Notice: last iteration if for validation set
-        random_merge dataset/training/im dataset/training/gt &
-        random_merge dataset/training/im dataset/training/gt &
-        random_merge dataset/training/im dataset/training/gt &
-        random_merge dataset/training/im dataset/training/gt &
-        random_merge dataset/training/im dataset/training/gt &
-        random_merge dataset/training/im dataset/training/gt &
-        random_merge dataset/training/im dataset/training/gt &
-        random_merge dataset/training/im dataset/training/gt &
-        random_merge dataset/training/im dataset/training/gt &
-        random_merge dataset/validation/im dataset/validation/g
+        # Notice: last iteration is for validation set
+        {
+            merge "$train_image_path" "$train_gt_path" &
+            merge "$train_image_path" "$train_gt_path" &
+            merge "$train_image_path" "$train_gt_path" &
+            merge "$train_image_path" "$train_gt_path" &
+            merge "$train_image_path" "$train_gt_path" &
+            merge "$train_image_path" "$train_gt_path" &
+            merge "$train_image_path" "$train_gt_path" &
+            merge "$train_image_path" "$train_gt_path" &
+            merge "$train_image_path" "$train_gt_path" &
+            merge "$validation_image_path" "$validation_gt_path" &
+        }
+        wait
     done
 }
 

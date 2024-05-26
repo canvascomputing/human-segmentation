@@ -6,32 +6,7 @@ import string
 import albumentations as A
 
 
-def apply_scale_and_move(image):
-    transform = A.Compose(
-        [
-            A.HorizontalFlip(p=0.5),
-            A.ShiftScaleRotate(
-                shift_limit_x=(-0.3, 0.3),
-                shift_limit_y=(0.0, 0.2),
-                scale_limit=(1.0, 1.5),
-                border_mode=cv2.BORDER_CONSTANT,
-                rotate_limit=(-3, 3),
-                p=0.7,
-            ),
-        ]
-    )
-    return transform(image=image)["image"]
-
-
-def apply_transform(image):
-    has_alpha = image.shape[2] == 4
-    if has_alpha:
-        alpha_channel = image[:, :, 3]
-        color_channels = image[:, :, :3]
-    else:
-        color_channels = image
-
-    # Define the transformation
+def augment_segmentation_after_moving(image):
     transform = A.Compose(
         [
             A.RandomBrightnessContrast(
@@ -39,27 +14,10 @@ def apply_transform(image):
             )
         ]
     )
-
-    # Apply the transformation only to the color channels
-    transformed = transform(image=color_channels)
-    transformed_image = transformed["image"]
-
-    # Merge the alpha channel back if it was separated
-    if has_alpha:
-        final_image = cv2.merge(
-            (
-                transformed_image[:, :, 0],
-                transformed_image[:, :, 1],
-                transformed_image[:, :, 2],
-                alpha_channel,
-            )
-        )
-    else:
-        final_image = transformed_image
-    return final_image
+    return transform(image=image)["image"]
 
 
-def apply_noise(image):
+def augment_final_image(image):
     transform = A.Compose(
         [
             A.MotionBlur(blur_limit=(5, 11), p=1.0),
@@ -89,123 +47,134 @@ def apply_noise(image):
     return transform(image=image)["image"]
 
 
-def remove_alpha(image, alpha_threshold=200):
-
+def remove_alpha_threshold(image, alpha_threshold=160):
+    # This function removes artifacts created by LayerDiffusion
     mask = image[:, :, 3] < alpha_threshold
     image[mask] = [0, 0, 0, 0]
+    return image
+
+
+def create_ground_truth_mask(image):
+    image = remove_alpha_threshold(image.copy())
+    return image[:, :, 3]
+
+
+def create_random_filename_from_filepath(path):
+    letters = string.ascii_lowercase
+    random_string = "".join(random.choice(letters) for i in range(13))
+    return random_string + "_" + os.path.basename(path)
+
+
+def scale_image(image, factor=1.5):
+    width = int(image.shape[1] * factor)
+    height = int(image.shape[0] * factor)
+    return cv2.resize(image, (width, height), interpolation=cv2.INTER_LINEAR)
+
+
+def augment_and_match_size(image, target_width, target_height):
+
+    random_scale = random.uniform(1, 1.5)
+    image = scale_image(image, random_scale)
+
+    transform = A.Compose(
+        [
+            A.HorizontalFlip(p=0.5),
+            A.ShiftScaleRotate(
+                shift_limit_x=(-0.3, 0.3),
+                shift_limit_y=(0.0, 0.4),
+                scale_limit=(0, 0),
+                border_mode=cv2.BORDER_CONSTANT,
+                rotate_limit=(-5, 5),
+                p=1.0,
+            ),
+        ]
+    )
+    image = transform(image=image)["image"]
+
+    # Ensure the image matches the target dimensions
+    current_height, current_width = image.shape[:2]
+
+    # Crop if the image is larger than the target size
+    if current_height > target_height or current_width > target_width:
+        # Calculating the top-left point to crop the image
+        start_x = max(0, (current_width - target_width) // 2)
+        start_y = max(0, (current_height - target_height) // 2)
+        image = image[
+            start_y : start_y + target_height, start_x : start_x + target_width
+        ]
+
+    # Pad if the image is smaller than the target size
+    if current_height < target_height or current_width < target_width:
+        delta_w = max(0, target_width - current_width)
+        delta_h = max(0, target_height - current_height)
+        top, bottom = delta_h // 2, delta_h - (delta_h // 2)
+        left, right = delta_w // 2, delta_w - (delta_w // 2)
+        color = [0, 0, 0, 0]
+        image = cv2.copyMakeBorder(
+            image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color
+        )
 
     return image
 
 
-def merge_images(
-    background_path, overlay_path, output_path, groundtruth_path, width, height
-):
-    letters = string.ascii_lowercase
-    random_string = "".join(random.choice(letters) for i in range(13))
-    file_name = random_string + "_" + os.path.basename(overlay_path)
+def merge_images(background, foreground, position=(0, 0)):
 
-    # Read the background image and resize it to the specified dimensions
-    background = cv2.imread(background_path, cv2.IMREAD_COLOR)
+    x, y = position
 
-    height, width = background.shape[:2]
+    fh, fw = foreground.shape[:2]
 
-    height = int(1.5 * height)
-    width = int(1.5 * width)
+    if x + fw > background.shape[1]:
+        fw = background.shape[1] - x
+        foreground = foreground[:, :fw]
+    if y + fh > background.shape[0]:
+        fh = background.shape[0] - y
+        foreground = foreground[:fh, :]
 
-    resized_background = cv2.resize(
-        background, (width, height), interpolation=cv2.INTER_AREA
-    )
+    # Region of Interest (ROI) in the background where the foreground will be placed
+    roi = background[y : y + fh, x : x + fw]
 
-    # Read the overlay image with alpha channel
-    overlay = cv2.imread(overlay_path, cv2.IMREAD_UNCHANGED)
+    # Split the foreground image into its color and alpha channels
+    foreground_color = foreground[:, :, :3]
+    alpha = foreground[:, :, 3] / 255.0
 
-    # Ensure overlay has an alpha channel
-    if overlay.shape[2] < 4:
-        raise Exception("Overlay image does not have an alpha channel.")
-
-    # Apply transformations to the overlay
-    overlay = expand_image_borders_rgba(overlay, width, height)
-    overlay = apply_scale_and_move(overlay)
-
-    # store ground truth
-    extract_alpha_channel_as_bw(overlay, os.path.join(groundtruth_path, file_name))
-
-    overlay = apply_transform(overlay)
-
-    # Overlay placement on the resized background
-    x_offset = (width - overlay.shape[1]) // 2
-    y_offset = (height - overlay.shape[0]) // 2
-
-    # Preventing overlay from exceeding the background dimensions
-    x_offset = max(0, x_offset)
-    y_offset = max(0, y_offset)
-
-    # Calculate the normalized alpha mask
-    alpha_overlay = overlay[..., 3] / 255.0
-    region_of_interest = resized_background[
-        y_offset : y_offset + overlay.shape[0],
-        x_offset : x_offset + overlay.shape[1],
-        :,
-    ]
-
-    # Blend the images
+    # Blend the images based on the alpha channel
     for c in range(0, 3):
-        region_of_interest[..., c] = (
-            alpha_overlay * overlay[..., c]
-            + (1 - alpha_overlay) * region_of_interest[..., c]
-        )
+        roi[:, :, c] = (1.0 - alpha) * roi[:, :, c] + alpha * foreground_color[:, :, c]
 
-    resized_background[
-        y_offset : y_offset + overlay.shape[0], x_offset : x_offset + overlay.shape[1]
-    ] = region_of_interest
+    # Place the modified ROI back into the original image
+    background[y : y + fh, x : x + fw] = roi
 
-    resized_background = apply_noise(resized_background)
-
-    cv2.imwrite(os.path.join(output_path, file_name), resized_background)
+    return background
 
 
-def expand_image_borders_rgba(
-    image, final_width, final_height, border_color=(0, 0, 0, 0)
+def create_training_data(
+    background_path, segmentation_path, image_path, ground_truth_path
 ):
-    # Check if image has an alpha channel
-    if image.shape[2] < 4:
-        raise ValueError(
-            "Loaded image does not contain an alpha channel. Make sure the input image is RGBA."
-        )
+    background = cv2.imread(background_path, cv2.IMREAD_COLOR)
+    segmentation = cv2.imread(segmentation_path, cv2.IMREAD_UNCHANGED)
 
-    # Current dimensions
-    height, width = image.shape[:2]
+    if segmentation.shape[2] < 4:
+        raise Exception(f"Image does not have an alpha channel: {segmentation_path}")
 
-    # Calculate padding needed
-    top = bottom = (final_height - height) // 2
-    left = right = (final_width - width) // 2
+    file_name = create_random_filename_from_filepath(segmentation_path)
+    image_path = os.path.join(image_path, file_name)
+    ground_truth_path = os.path.join(ground_truth_path, file_name)
 
-    # To handle cases where the new dimensions are odd and original dimensions are even (or vice versa)
-    if (final_height - height) % 2 != 0:
-        bottom += 1
-    if (final_width - width) % 2 != 0:
-        right += 1
-
-    # Apply make border with an RGBA color
-    new_image = cv2.copyMakeBorder(
-        image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=border_color
+    bg_height, bg_width = background.shape[:2]
+    segmentation = augment_and_match_size(
+        segmentation, target_height=bg_height, target_width=bg_width
     )
+    ground_truth = create_ground_truth_mask(segmentation)
 
-    return new_image
+    segmentation = augment_segmentation_after_moving(segmentation)
+    result = merge_images(background, segmentation)
+    result = augment_final_image(result)
 
+    assert ground_truth.shape[0] == result.shape[0]
+    assert ground_truth.shape[1] == result.shape[1]
 
-def extract_alpha_channel_as_bw(image, output_path):
-    # Check if the image has an alpha channel
-    if image.shape[2] < 4:
-        raise ValueError(
-            "Loaded image does not contain an alpha channel. Make sure the input image is in PNG format with an alpha channel."
-        )
-
-    # Extract the alpha channel
-    image = remove_alpha(image.copy())
-    alpha_channel = image[:, :, 3]
-    # Save or display the alpha channel as a black and white image
-    cv2.imwrite(output_path, alpha_channel)
+    cv2.imwrite(ground_truth_path, ground_truth)
+    cv2.imwrite(image_path, result)
 
 
 def main():
@@ -216,7 +185,7 @@ def main():
         "-b", "--background", required=True, help="Path to the background image"
     )
     parser.add_argument(
-        "-o", "--overlay", required=True, help="Path to the overlay image"
+        "-s", "--segmentation", required=True, help="Path to the segmentation image"
     )
     parser.add_argument(
         "-im",
@@ -224,18 +193,6 @@ def main():
         type=str,
         default="im",
         help="Path where the merged image will be saved",
-    )
-    parser.add_argument(
-        "--width",
-        type=int,
-        default=1920,
-        help="Width to which the background image will be resized",
-    )
-    parser.add_argument(
-        "--height",
-        type=int,
-        default=1080,
-        help="Height to which the background image will be resized",
     )
     parser.add_argument(
         "-gt",
@@ -251,13 +208,11 @@ def main():
     if not os.path.exists(args.groundtruth_path):
         os.makedirs(args.groundtruth_path)
 
-    merge_images(
-        args.background,
-        args.overlay,
-        args.image_path,
-        args.groundtruth_path,
-        args.width,
-        args.height,
+    create_training_data(
+        background_path=args.background,
+        segmentation_path=args.segmentation,
+        image_path=args.image_path,
+        ground_truth_path=args.groundtruth_path,
     )
 
 
