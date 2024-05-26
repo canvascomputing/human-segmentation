@@ -219,8 +219,8 @@ def main():
         "-o", "--overlay", required=True, help="Path to the overlay image"
     )
     parser.add_argument(
-        "-out",
-        "--output",
+        "-im",
+        "--image-path",
         type=str,
         default="im",
         help="Path where the merged image will be saved",
@@ -239,23 +239,23 @@ def main():
     )
     parser.add_argument(
         "-gt",
-        "--groundtruth",
+        "--groundtruth-path",
         type=str,
         default="gt",
         help="Ground truth folder",
     )
     args = parser.parse_args()
 
-    if not os.path.exists(args.output):
-        os.makedirs(args.output)
-    if not os.path.exists(args.groundtruth):
-        os.makedirs(args.groundtruth)
+    if not os.path.exists(args.image_path):
+        os.makedirs(args.image_path)
+    if not os.path.exists(args.groundtruth_path):
+        os.makedirs(args.groundtruth_path)
 
     merge_images(
         args.background,
         args.overlay,
-        args.output,
-        args.groundtruth,
+        args.image_path,
+        args.groundtruth_path,
         args.width,
         args.height,
     )
