@@ -3,7 +3,6 @@ import cv2
 import argparse
 import random
 import string
-from pathlib import Path
 import albumentations as A
 
 
@@ -13,8 +12,8 @@ def apply_scale_and_move(image):
             A.HorizontalFlip(p=0.5),
             A.ShiftScaleRotate(
                 shift_limit_x=(-0.3, 0.3),
-                shift_limit_y=(0.0, 0.4),
-                scale_limit=(0.0, 1.0),
+                shift_limit_y=(0.0, 0.2),
+                scale_limit=(1.0, 1.5),
                 border_mode=cv2.BORDER_CONSTANT,
                 rotate_limit=(-3, 3),
                 p=0.7,
@@ -36,7 +35,7 @@ def apply_transform(image):
     transform = A.Compose(
         [
             A.RandomBrightnessContrast(
-                brightness_limit=(-0.2, 0.2), contrast_limit=(-0.4, 0), p=0.8
+                brightness_limit=(-0.1, 0.1), contrast_limit=(-0.4, 0), p=0.8
             )
         ]
     )
@@ -63,7 +62,7 @@ def apply_transform(image):
 def apply_noise(image):
     transform = A.Compose(
         [
-            A.MotionBlur(blur_limit=(3, 11), p=1.0),
+            A.MotionBlur(blur_limit=(5, 11), p=1.0),
             A.GaussNoise(var_limit=(10, 150), p=1.0),
             A.RandomBrightnessContrast(
                 brightness_limit=(-0.1, 0.1), contrast_limit=(-0.1, 0.1), p=0.5
@@ -119,7 +118,6 @@ def merge_images(
 
     # Read the overlay image with alpha channel
     overlay = cv2.imread(overlay_path, cv2.IMREAD_UNCHANGED)
-    overlay = remove_alpha(overlay)
 
     # Ensure overlay has an alpha channel
     if overlay.shape[2] < 4:
@@ -204,8 +202,8 @@ def extract_alpha_channel_as_bw(image, output_path):
         )
 
     # Extract the alpha channel
+    image = remove_alpha(image.copy())
     alpha_channel = image[:, :, 3]
-
     # Save or display the alpha channel as a black and white image
     cv2.imwrite(output_path, alpha_channel)
 

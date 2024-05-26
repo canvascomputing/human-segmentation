@@ -1,18 +1,23 @@
 #!/bin/bash
 
-backgrounds_dir="backgrounds"
-overlays_dir="data"
+random_merge() {
+    local backgrounds_dir="backgrounds"
+    local overlays_dir="data"
+    background=$(find "$backgrounds_dir" -type f | shuf -n 1)
+    overlay=$(find "$overlays_dir" -type f | shuf -n 1)
+    echo "Processing iteration $i: $overlay + $background"
+    python3 merge_images.py -b "$background" -o "$overlay"
+}
 
 main() {
-    local count=0  # Initialize a counter variable
-    for overlay in "$overlays_dir"/*
-    do
-        count=$((count + 1))  # Increment the counter
-        if [ -f "$overlay" ]; then
-            echo "Processing iteration $count with overlay: $overlay"
-            background=$(find "$backgrounds_dir" -type f | shuf -n 1)
-            python3 merge_images.py -b "$background" -o "$overlay"
-        fi
+    local count=0
+    local max_iterations=4000
+    for ((i = 0 ; i <= $max_iterations ; i++)); do
+        random_merge &
+        random_merge &
+        random_merge &
+        random_merge &
+        random_merge
     done
 }
 
