@@ -21,7 +21,7 @@ I created more than 5.000 images with people and more than 5.000 diverse backgro
 
 1. [Download human segmentations and backgrounds](https://drive.google.com/drive/folders/1K1lK6nSoaQ7PLta-bcfol3XSGZA1b9nt?usp=drive_link)
 
-2. Execute the following script creates augmented training and validation data:
+2. Execute the following script for creating training and validation data:
 
 ```
 ./create_dataset.sh
