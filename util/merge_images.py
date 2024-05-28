@@ -9,7 +9,7 @@ import albumentations as A
 def augment_final_image(image):
     transform = A.Compose(
         [
-            A.MotionBlur(blur_limit=(5, 11), p=1.0),
+            A.MotionBlur(blur_limit=(3, 11), p=0.2),
             A.GaussNoise(var_limit=(10, 150), p=1.0),
             A.ColorJitter(
                 brightness=(0.6, 1.0),
@@ -40,6 +40,24 @@ def augment_final_image(image):
     return transform(image=image)["image"]
 
 
+def augment_background(image):
+    transform = A.Compose(
+        [
+            A.RandomBrightnessContrast(brightness_limit=(-0.4, 0.0), p=0.2),
+            A.RandomShadow(
+                shadow_roi=(0, 0.7, 1, 1),
+                num_shadows_limit=(1, 5),
+                num_shadows_lower=None,
+                num_shadows_upper=None,
+                shadow_dimension=5,
+                always_apply=False,
+                p=1.0,
+            ),
+        ]
+    )
+    return transform(image=image)["image"]
+
+
 def remove_alpha_threshold(image, alpha_threshold=160):
     # This function removes artifacts created by LayerDiffusion
     mask = image[:, :, 3] < alpha_threshold
@@ -48,7 +66,6 @@ def remove_alpha_threshold(image, alpha_threshold=160):
 
 
 def create_ground_truth_mask(image):
-    image = remove_alpha_threshold(image.copy())
     return image[:, :, 3]
 
 
@@ -66,19 +83,18 @@ def scale_image(image, factor=1.5):
 
 def augment_and_match_size(image, target_width, target_height):
 
-    random_scale = random.uniform(1, 1.5)
-    image = scale_image(image, random_scale)
-
     transform = A.Compose(
         [
+            A.LongestMaxSize(max_size=max(target_width, target_height), p=1.0),
+            A.RandomScale(scale_limit=(-0.5, 0.5)),
             A.HorizontalFlip(p=0.5),
             A.ShiftScaleRotate(
                 shift_limit_x=(-0.3, 0.3),
-                shift_limit_y=(0.0, 0.4),
+                shift_limit_y=(0.0, 0.5),
                 scale_limit=(0, 0),
-                border_mode=cv2.BORDER_CONSTANT,
                 rotate_limit=(-5, 5),
-                p=0.7,
+                border_mode=cv2.BORDER_CONSTANT,
+                p=0.5,
             ),
         ]
     )
@@ -148,6 +164,9 @@ def create_training_data(
 
     if segmentation.shape[2] < 4:
         raise Exception(f"Image does not have an alpha channel: {segmentation_path}")
+
+    background = augment_background(background)
+    segmentation = remove_alpha_threshold(segmentation)
 
     file_name = create_random_filename_from_filepath(segmentation_path)
     image_path = os.path.join(image_path, file_name)

@@ -42,7 +42,12 @@ I had some trouble with the Hugging Face file upload. This is why you can find t
 
 # Changelog
 
-26.05.2024
+### 28.05.2024
+
+- Reduced blur, because it leads to blurred edges in results
+
+### 26.05.2024
 
 - Added more diverse backgrounds (natural landscapes, streets, houses)
 - Added more close-up images
+- Added shadow augmentation
