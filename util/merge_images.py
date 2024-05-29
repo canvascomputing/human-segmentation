@@ -9,8 +9,8 @@ import albumentations as A
 def augment_final_image(image):
     transform = A.Compose(
         [
-            A.MotionBlur(blur_limit=(3, 11), p=0.2),
-            A.GaussNoise(var_limit=(10, 150), p=1.0),
+            A.MotionBlur(blur_limit=(3, 11), p=0.05),
+            A.GaussNoise(var_limit=(1, 10), p=0.2),
             A.ColorJitter(
                 brightness=(0.6, 1.0),
                 contrast=(0.6, 1.0),
@@ -23,7 +23,7 @@ def augment_final_image(image):
                 fog_coef_upper=0.2,
                 alpha_coef=0.08,
                 always_apply=False,
-                p=0.5,
+                p=0.2,
             ),
             A.RandomShadow(
                 shadow_roi=(0, 0.5, 1, 1),
@@ -32,7 +32,7 @@ def augment_final_image(image):
                 num_shadows_upper=None,
                 shadow_dimension=5,
                 always_apply=False,
-                p=0.5,
+                p=0.2,
             ),
             A.RandomToneCurve(scale=0.1, always_apply=False, p=0.5),
         ]
@@ -83,10 +83,15 @@ def scale_image(image, factor=1.5):
 
 def augment_and_match_size(image, target_width, target_height):
 
+    color = [0, 0, 0, 0]
+    image = cv2.copyMakeBorder(
+        image, 200, 200, 200, 200, cv2.BORDER_CONSTANT, value=color
+    )
+
     transform = A.Compose(
         [
             A.LongestMaxSize(max_size=max(target_width, target_height), p=1.0),
-            A.RandomScale(scale_limit=(-0.5, 0.5)),
+            A.RandomScale(scale_limit=(-0.7, 0.5)),
             A.HorizontalFlip(p=0.5),
             A.ShiftScaleRotate(
                 shift_limit_x=(-0.3, 0.3),
@@ -118,7 +123,6 @@ def augment_and_match_size(image, target_width, target_height):
         delta_h = max(0, target_height - current_height)
         top, bottom = delta_h // 2, delta_h - (delta_h // 2)
         left, right = delta_w // 2, delta_w - (delta_w // 2)
-        color = [0, 0, 0, 0]
         image = cv2.copyMakeBorder(
             image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color
         )
